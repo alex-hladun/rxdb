@@ -1,21 +1,33 @@
 import './style.css';
-import { addRxPlugin, createRxDatabase } from 'rxdb';
+import {
+    addRxPlugin,
+    createRxDatabase
+} from 'rxdb';
 
-import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
+import {
+    getRxStorageDexie
+} from 'rxdb/plugins/storage-dexie';
 
-import { getRxStorageLoki } from 'rxdb/plugins/storage-lokijs';
+import {
+    getRxStorageLoki
+} from 'rxdb/plugins/storage-lokijs';
 const LokiIncrementalIndexedDBAdapter = require('lokijs/src/incremental-indexeddb-adapter');
 
-import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import {
+    getRxStorageMemory
+} from 'rxdb/plugins/storage-memory';
 
-import { filter } from 'rxjs/operators';
+import {
+    filter
+} from 'rxjs/operators';
 
 import {
     pullQueryBuilderFromRxSchema,
     pushQueryBuilderFromRxSchema,
     pullStreamBuilderFromRxSchema,
-    replicateGraphQL,
+    replicateGraphQL
 } from 'rxdb/plugins/replication-graphql';
+
 
 // TODO import these only in non-production build
 
@@ -32,6 +44,7 @@ addRxPlugin(RxDBQueryBuilderPlugin);
 import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election';
 addRxPlugin(RxDBLeaderElectionPlugin);
 
+
 import {
     GRAPHQL_PORT,
     GRAPHQL_PATH,
@@ -39,7 +52,7 @@ import {
     GRAPHQL_SUBSCRIPTION_PATH,
     heroSchema,
     graphQLGenerationInput,
-    JWT_BEARER_TOKEN,
+    JWT_BEARER_TOKEN
 } from '../shared';
 
 const insertButton = document.querySelector('#insert-button');
@@ -50,18 +63,12 @@ const databaseNameField = document.querySelector('#database-name');
 
 console.log('hostname: ' + window.location.hostname);
 
+
 const syncUrls = {
-    http:
-        'http://' +
-        window.location.hostname +
-        ':' +
-        GRAPHQL_PORT +
-        GRAPHQL_PATH,
-    ws:
-        'ws://localhost:' +
-        GRAPHQL_SUBSCRIPTION_PORT +
-        GRAPHQL_SUBSCRIPTION_PATH,
+    http: 'http://' + window.location.hostname + ':' + GRAPHQL_PORT + GRAPHQL_PATH,
+    ws: 'ws://localhost:' + GRAPHQL_SUBSCRIPTION_PORT + GRAPHQL_SUBSCRIPTION_PATH
 };
+
 
 const batchSize = 50;
 
@@ -108,6 +115,7 @@ function doSync() {
     }
 }
 
+
 function getStorageKey() {
     const url_string = window.location.href;
     const url = new URL(url_string);
@@ -133,7 +141,7 @@ function getStorage() {
             },
             autosaveCallback() {
                 console.log('Autosave done!');
-            },
+            }
         });
     } else if (storageKey === 'dexie') {
         return getRxStorageDexie();
@@ -144,6 +152,7 @@ function getStorage() {
     }
 }
 
+
 async function run() {
     storageField.innerHTML = getStorageKey();
     databaseNameField.innerHTML = getDatabaseName();
@@ -151,9 +160,9 @@ async function run() {
     const db = await createRxDatabase({
         name: getDatabaseName(),
         storage: wrappedValidateAjvStorage({
-            storage: getStorage(),
+            storage: getStorage()
         }),
-        multiInstance: getStorageKey() !== 'memory',
+        multiInstance: getStorageKey() !== 'memory'
     });
     window.db = db;
 
@@ -166,8 +175,8 @@ async function run() {
     heroesList.innerHTML = 'Create collection..';
     await db.addCollections({
         hero: {
-            schema: heroSchema,
-        },
+            schema: heroSchema
+        }
     });
 
     db.hero.preSave(function (docData) {
@@ -182,45 +191,37 @@ async function run() {
             url: syncUrls,
             headers: {
                 /* optional, set an auth header */
-                Authorization: 'Bearer ' + JWT_BEARER_TOKEN,
+                Authorization: 'Bearer ' + JWT_BEARER_TOKEN
             },
             push: {
                 batchSize,
-                queryBuilder: pushQueryBuilder,
-                modifier: (doc) => {
-                    if (doc.doNotSync) {
-                        console.log(
-                            '✅skipping doc as doNotSync is false',
-                            doc
-                        );
-                        return null;
-                    }
-                    console.log('❌syncing Doc', doc);
-                    return doc;
-                },
+                queryBuilder: pushQueryBuilder
             },
             pull: {
                 batchSize,
                 queryBuilder: pullQueryBuilder,
-                streamQueryBuilder: pullStreamBuilder,
+                streamQueryBuilder: pullStreamBuilder
             },
             live: true,
-            deletedField: 'deleted',
+            deletedField: 'deleted'
         });
+
 
         // show replication-errors in logs
         heroesList.innerHTML = 'Subscribe to errors..';
-        replicationState.error$.subscribe((err) => {
+        replicationState.error$.subscribe(err => {
             console.error('replication error:');
             console.dir(err);
         });
     }
 
+
     // log all collection events for debugging
-    db.hero.$.pipe(filter((ev) => !ev.isLocal)).subscribe((ev) => {
+    db.hero.$.pipe(filter(ev => !ev.isLocal)).subscribe(ev => {
         console.log('collection.$ emitted:');
         console.dir(ev);
     });
+
 
     /**
      * We await the initial replication
@@ -236,26 +237,26 @@ async function run() {
 
     // subscribe to heroes list and render the list on change
     heroesList.innerHTML = 'Subscribe to query..';
-    db.hero
-        .find()
+    db.hero.find()
         .sort({
-            name: 'asc',
+            name: 'asc'
         })
         .$.subscribe(function (heroes) {
             console.log('emitted heroes:');
-            console.dir(heroes.map((d) => d.toJSON()));
+            console.dir(heroes.map(d => d.toJSON()));
             let html = '';
             heroes.forEach(function (hero) {
                 html += `
                     <li class="hero-item">
                         <div class="color-box" style="background:${hero.color}"></div>
                         <div class="name">${hero.name} (updatedAt: ${hero.updatedAt})</div>
-                        <div class="delete-icon" onclick="window.markAsDoNotSync('${hero.primary}')">DO NOT SYNC</div>
+                        <div class="delete-icon" onclick="window.deleteHero('${hero.primary}')">DELETE</div>
                     </li>
                 `;
             });
             heroesList.innerHTML = html;
         });
+
 
     // set up click handlers
     window.deleteHero = async (id) => {
@@ -271,21 +272,6 @@ async function run() {
             }
         }
     };
-
-    window.markAsDoNotSync = async (id) => {
-        console.log('mark as do not sync ' + id);
-        const doc = await db.hero.findOne(id).exec();
-        if (doc) {
-            console.log('got doc, applying doNotSync as true');
-            try {
-                await doc.incrementalPatch({
-                    doNotSync: true,
-                });
-            } catch (err) {
-                console.dir(err);
-            }
-        }
-    };
     insertButton.onclick = async function () {
         const name = document.querySelector('input[name="name"]').value;
         const color = document.querySelector('input[name="color"]').value;
@@ -293,8 +279,7 @@ async function run() {
             id: name,
             name: name,
             color: color,
-            doNotSync: false,
-            updatedAt: new Date().getTime(),
+            updatedAt: new Date().getTime()
         };
         console.log('inserting hero:');
         console.dir(obj);
@@ -304,7 +289,7 @@ async function run() {
         document.querySelector('input[name="color"]').value = '';
     };
 }
-run().catch((err) => {
+run().catch(err => {
     console.log('run() threw an error:');
     console.error(err);
 });

@@ -190,12 +190,12 @@ async function run() {
                 modifier: (doc) => {
                     if (doc.doNotSync) {
                         console.log(
-                            '✅skipping doc as doNotSync is false',
+                            '✅ skipping doc as doNotSync is false',
                             doc
                         );
                         return null;
                     }
-                    console.log('❌syncing Doc', doc);
+                    console.log('Sending doc to server', doc);
                     return doc;
                 },
             },
